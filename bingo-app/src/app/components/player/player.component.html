@@ -1,0 +1,177 @@
+<div class="min-h-screen bg-gradient-to-b from-slate-50 via-white to-indigo-50">
+    @if (player(); as playerData) {
+    <!-- Player Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
+        <div class="max-w-lg mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-md">
+                        <i class="pi pi-user text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-slate-800">Jugador {{ playerId() }}</h1>
+                        <p class="text-xs text-slate-500">{{ markedCount() }}/{{ totalMarkable }} marcados</p>
+                    </div>
+                </div>
+
+                <!-- Current Ball Badge -->
+                @if (currentBall(); as ball) {
+                <div class="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-2">
+                    <span class="text-xs text-indigo-500 font-medium">{{ getCurrentBallLetter() }}</span>
+                    <div class="w-8 h-8 rounded-full ball-3d flex items-center justify-center">
+                        <span class="text-sm font-bold text-white">{{ ball }}</span>
+                    </div>
+                </div>
+                }
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="mt-3 h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full transition-all duration-500 ease-out"
+                    [style.width.%]="progress()"></div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-lg mx-auto px-4 py-6">
+        <!-- Bingo Card -->
+        <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+            <!-- Card Header -->
+            <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 px-5 py-3">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-white font-bold flex items-center gap-2">
+                        <i class="pi pi-ticket"></i>
+                        Mi Cartón
+                    </h2>
+                    <span class="text-indigo-200 text-sm">{{ markedCount() }} / {{ totalMarkable }}</span>
+                </div>
+            </div>
+
+            <!-- BINGO Header Row -->
+            <div class="grid grid-cols-5 gap-0 bg-gradient-to-r from-indigo-700 to-indigo-800">
+                @for (letter of bingoLetters; track letter) {
+                <div class="py-2.5 text-center">
+                    <span class="text-xl font-black text-white tracking-wider">{{ letter }}</span>
+                </div>
+                }
+            </div>
+
+            <!-- Numbers Grid (5x5) -->
+            <div class="p-3">
+                @for (row of cardGrid(); track $index) {
+                <div class="grid grid-cols-5 gap-2 mb-2">
+                    @for (cell of row; track cell.value) {
+                    @if (cell.isFree) {
+                    <!-- FREE Space -->
+                    <div
+                        class="aspect-square rounded-xl flex flex-col items-center justify-center bg-gradient-to-br from-amber-400 to-amber-600 text-white shadow-lg shadow-amber-300/30 ring-2 ring-amber-300">
+                        <i class="pi pi-star-fill text-xs mb-0.5"></i>
+                        <span class="text-xs font-black tracking-wide">FREE</span>
+                    </div>
+                    } @else {
+                    <!-- Regular Number -->
+                    <button (click)="onNumberTap(cell.value)"
+                        class="aspect-square rounded-xl text-lg font-bold transition-all duration-200 active:scale-90 select-none touch-manipulation"
+                        [class]="isMarked(cell.value)
+                          ? 'bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-lg shadow-indigo-300/40 scale-95 ring-2 ring-indigo-400'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-2 border-slate-200 hover:border-indigo-300'">
+                        {{ cell.value }}
+                    </button>
+                    }
+                    }
+                </div>
+                }
+            </div>
+        </div>
+
+        <!-- Info Section -->
+        <div class="mt-6 space-y-3">
+            <!-- Drawn numbers count -->
+            <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i class="pi pi-circle text-amber-500"></i>
+                        <span class="text-sm text-slate-600 font-medium">Bolitas extraídas</span>
+                    </div>
+                    <span class="text-lg font-bold text-slate-800">{{ drawnNumbers().length }}</span>
+                </div>
+            </div>
+
+            <!-- Tip -->
+            <div class="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+                <p class="text-xs text-indigo-600 flex items-start gap-2">
+                    <i class="pi pi-info-circle mt-0.5"></i>
+                    <span>Toca un número para marcarlo. Si te equivocas, tócalo de nuevo para desmarcarlo. El espacio
+                        FREE está marcado automáticamente.</span>
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Win Animation Overlay -->
+    @if (showWinAnimation()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
+        <!-- Confetti -->
+        @for (piece of confettiPieces(); track $index) {
+        <div class="confetti-piece rounded-sm" [style.left]="piece.left" [style.background-color]="piece.color"
+            [style.animation-delay]="piece.delay" [style.width]="piece.size" [style.height]="piece.size"></div>
+        }
+
+        <div class="bg-white rounded-3xl p-8 mx-4 text-center shadow-2xl animate-bounce-in max-w-sm w-full">
+            <div class="text-7xl mb-4">🏆</div>
+            <h2 class="text-3xl font-black text-slate-800 mb-2">¡BINGO!</h2>
+            <p class="text-lg text-slate-600 mb-1">¡Has completado tu cartón!</p>
+            <p class="text-indigo-600 font-bold text-xl mb-6">¡Felicitaciones, Jugador {{ playerId() }}!</p>
+            <div
+                class="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center shadow-lg shadow-green-300/40 animate-float">
+                <i class="pi pi-check text-4xl text-white"></i>
+            </div>
+        </div>
+    </div>
+    }
+
+    <!-- Unmark Confirmation Modal (Custom, NOT native confirm) -->
+    @if (showUnmarkModal()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in" (click)="cancelUnmark()">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+        <div class="relative bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-bounce-in"
+            (click)="$event.stopPropagation()">
+            <div class="text-center">
+                <div class="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                    <i class="pi pi-exclamation-triangle text-2xl text-amber-600"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800 mb-2">¿Desmarcar número?</h3>
+                <p class="text-slate-500 mb-1">
+                    Estás a punto de desmarcar el número:
+                </p>
+                <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-indigo-100 my-3">
+                    <span class="text-2xl font-black text-indigo-600">{{ pendingUnmarkNumber() }}</span>
+                </div>
+                <p class="text-slate-400 text-sm mb-6">
+                    ¿Estás seguro de que deseas continuar?
+                </p>
+                <div class="flex gap-3">
+                    <button (click)="cancelUnmark()"
+                        class="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-all duration-200 active:scale-95">
+                        Cancelar
+                    </button>
+                    <button (click)="confirmUnmark()"
+                        class="flex-1 py-3 px-4 bg-amber-500 hover:bg-amber-400 text-white font-medium rounded-xl transition-all duration-200 active:scale-95">
+                        Sí, desmarcar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    }
+    } @else {
+    <!-- Loading / Error state -->
+    <div class="min-h-screen flex items-center justify-center">
+        <div class="text-center">
+            <i class="pi pi-spin pi-spinner text-4xl text-indigo-500 mb-4"></i>
+            <p class="text-slate-600">Cargando cartón...</p>
+        </div>
+    </div>
+    }
+</div>

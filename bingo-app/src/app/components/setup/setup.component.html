@@ -1,0 +1,106 @@
+<div class="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center p-4">
+  <!-- Background decorations -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none">
+    <div class="absolute top-20 left-10 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl"></div>
+    <div class="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-amber-500/5 rounded-full blur-3xl"></div>
+  </div>
+
+  <div class="relative z-10 w-full max-w-lg">
+    <!-- Logo / Title -->
+    <div class="text-center mb-10 animate-slide-up">
+      <div class="inline-flex items-center justify-center w-24 h-24 rounded-full ball-3d mb-6 animate-float">
+        <span class="text-4xl font-black text-white">B</span>
+      </div>
+      <h1 class="text-5xl font-black text-white tracking-tight mb-2">
+        BINGO
+      </h1>
+      <p class="text-indigo-300 text-lg font-light">
+        <i class="pi pi-users mr-2"></i>Juego Interactivo en Grupo
+      </p>
+    </div>
+
+    <!-- Setup Card -->
+    <div class="glass-card rounded-2xl p-8 shadow-2xl animate-slide-up" style="animation-delay: 0.1s;">
+      <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+        <i class="pi pi-cog text-indigo-400"></i>
+        Configuración del Juego
+      </h2>
+
+      <!-- Player Count Selector -->
+      <div class="mb-8">
+        <label class="block text-slate-300 text-sm font-medium mb-4">
+          Cantidad de Jugadores
+        </label>
+        <div class="flex items-center justify-center gap-6">
+          <button
+            (click)="decrement()"
+            [disabled]="playerCount() <= minPlayers"
+            class="w-14 h-14 rounded-xl bg-slate-700/80 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-white text-2xl font-bold transition-all duration-200 hover:scale-110 active:scale-95 border border-slate-600"
+          >
+            −
+          </button>
+
+          <div class="flex flex-col items-center">
+            <span class="text-6xl font-black text-white tabular-nums">
+              {{ playerCount() }}
+            </span>
+            <span class="text-slate-400 text-xs mt-1">jugadores</span>
+          </div>
+
+          <button
+            (click)="increment()"
+            [disabled]="playerCount() >= maxPlayers"
+            class="w-14 h-14 rounded-xl bg-slate-700/80 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-white text-2xl font-bold transition-all duration-200 hover:scale-110 active:scale-95 border border-slate-600"
+          >
+            +
+          </button>
+        </div>
+
+        <!-- Visual indicator -->
+        <div class="flex justify-center gap-1.5 mt-4">
+          @for (item of [].constructor(maxPlayers); track $index) {
+            <div
+              class="h-2 rounded-full transition-all duration-300"
+              [class]="$index < playerCount()
+                ? 'w-6 bg-indigo-500'
+                : 'w-2 bg-slate-600'"
+            ></div>
+          }
+        </div>
+      </div>
+
+      <!-- Start Button -->
+      <button
+        (click)="startGame()"
+        [disabled]="isStarting()"
+        class="w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-lg rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg hover:shadow-indigo-500/25 disabled:opacity-50 flex items-center justify-center gap-3"
+      >
+        @if (isStarting()) {
+          <i class="pi pi-spin pi-spinner text-xl"></i>
+          <span>Preparando juego...</span>
+        } @else {
+          <i class="pi pi-play text-xl"></i>
+          <span>Iniciar Juego</span>
+        }
+      </button>
+
+      <!-- Resume Button -->
+      @if (resumeGame()) {
+        <button
+          (click)="onResumeGame()"
+          class="w-full mt-3 py-3 px-6 bg-slate-700/60 hover:bg-slate-600/80 text-slate-300 hover:text-white font-medium rounded-xl transition-all duration-200 border border-slate-600 flex items-center justify-center gap-2"
+        >
+          <i class="pi pi-history"></i>
+          <span>Reanudar Partida Anterior</span>
+        </button>
+      }
+    </div>
+
+    <!-- Footer -->
+    <p class="text-center text-slate-500 text-xs mt-6">
+      <i class="pi pi-info-circle mr-1"></i>
+      Los jugadores se conectarán escaneando un código QR
+    </p>
+  </div>
+</div>
