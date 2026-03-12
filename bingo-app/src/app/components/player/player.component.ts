@@ -1,23 +1,29 @@
 import { Component, OnInit, signal, computed, OnDestroy } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { BingoService, PlayerCard, BINGO_LETTERS, FREE_INDEX } from '../../services/bingo.service';
+import { Unsubscribe } from 'firebase/firestore';
 
 @Component({
     selector: 'app-player',
     standalone: true,
-    imports: [CommonModule],
+    imports: [CommonModule, FormsModule],
     templateUrl: './player.component.html'
 })
 export class PlayerComponent implements OnInit, OnDestroy {
+    gameId = signal<string>('');
     playerId = signal<number>(0);
     player = signal<PlayerCard | null>(null);
     showUnmarkModal = signal(false);
     pendingUnmarkNumber = signal<number | null>(null);
     showWinAnimation = signal(false);
     confettiPieces = signal<{ left: string; color: string; delay: string; size: string }[]>([]);
+    isLoading = signal(true);
+    showNameForm = signal(false);
+    playerName = signal<string>('');
 
-    private refreshInterval: any;
+    private unsubscribe?: Unsubscribe;
 
     readonly bingoLetters = BINGO_LETTERS;
     readonly freeIndex = FREE_INDEX;
@@ -64,52 +70,68 @@ export class PlayerComponent implements OnInit, OnDestroy {
     constructor(
         private route: ActivatedRoute,
         private router: Router,
-        private bingoService: BingoService
+        readonly bingoService: BingoService
     ) { }
 
     ngOnInit(): void {
-        this.route.queryParams.subscribe(params => {
-            const id = parseInt(params['player'], 10);
-            if (!id || isNaN(id)) {
+        this.route.paramMap.subscribe(async params => {
+            const gameIdFromRoute = params.get('gameId');
+            const playerIdFromRoute = params.get('playerId');
+            
+            if (!gameIdFromRoute || !playerIdFromRoute) {
+                console.error('Missing gameId or playerId in route');
                 this.router.navigate(['/']);
                 return;
             }
 
+            const id = parseInt(playerIdFromRoute, 10);
+            if (isNaN(id)) {
+                console.error('Invalid playerId');
+                this.router.navigate(['/']);
+                return;
+            }
+
+            this.gameId.set(gameIdFromRoute);
             this.playerId.set(id);
+            this.isLoading.set(true);
 
-            // Load from localStorage first
-            const loaded = this.bingoService.loadPlayerState(id);
-            if (loaded) {
-                this.updatePlayerSignal();
-            } else {
+            console.log('🎮 Player component - Game ID:', gameIdFromRoute, 'Player:', id);
+
+            // Load game state from Firestore
+            const gameExists = await this.bingoService.loadGameStateFromFirestore(gameIdFromRoute, id);
+            
+            if (!gameExists) {
+                console.error('Game not found or player does not exist');
+                this.isLoading.set(false);
                 this.router.navigate(['/']);
                 return;
             }
-        });
 
-        // Periodically refresh game state from localStorage (for real-time drawn numbers)
-        this.refreshInterval = setInterval(() => {
-            this.refreshGameState();
-        }, 2000);
+            this.updatePlayerSignal();
+            this.isLoading.set(false);
+
+            // Check if player needs to set name (default name pattern: "Jugador X")
+            const currentPlayer = this.bingoService.getPlayer(id);
+            if (currentPlayer && currentPlayer.name.startsWith('Jugador ')) {
+                this.showNameForm.set(true);
+            }
+
+            // Subscribe to real-time updates
+            this.unsubscribe = this.bingoService.subscribeToGameState(gameIdFromRoute, () => {
+                this.updatePlayerSignal();
+                
+                // Check if player just won
+                const p = this.bingoService.getPlayer(id);
+                if (p?.hasWon && !this.showWinAnimation()) {
+                    this.triggerWinAnimation();
+                }
+            });
+        });
     }
 
     ngOnDestroy(): void {
-        if (this.refreshInterval) {
-            clearInterval(this.refreshInterval);
-        }
-    }
-
-    refreshGameState(): void {
-        const stateStr = localStorage.getItem('bingo-game-state');
-        if (stateStr) {
-            try {
-                const state = JSON.parse(stateStr);
-                // Update drawn numbers in the service
-                this.bingoService.drawnNumbers.set(state.drawnNumbers || []);
-                this.bingoService.currentBall.set(state.currentBall);
-            } catch {
-                // ignore
-            }
+        if (this.unsubscribe) {
+            this.unsubscribe();
         }
     }
 
@@ -159,6 +181,26 @@ export class PlayerComponent implements OnInit, OnDestroy {
     isMarked(number: number): boolean {
         const p = this.player();
         return p ? p.markedNumbers.has(number) : false;
+    }
+
+    async submitName(): Promise<void> {
+        const name = this.playerName().trim();
+        if (!name) {
+            alert('Por favor ingresa tu nombre');
+            return;
+        }
+
+        this.isLoading.set(true);
+        try {
+            await this.bingoService.updatePlayerName(this.playerId(), name);
+            this.updatePlayerSignal();
+            this.showNameForm.set(false);
+        } catch (error) {
+            console.error('Error al actualizar nombre:', error);
+            alert('Error al guardar el nombre. Intenta nuevamente.');
+        } finally {
+            this.isLoading.set(false);
+        }
     }
 
     triggerWinAnimation(): void {

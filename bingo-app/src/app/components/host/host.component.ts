@@ -1,8 +1,10 @@
-import { Component, OnInit, signal, computed, ElementRef, ViewChildren, QueryList, AfterViewInit, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, OnInit, signal, computed, ElementRef, ViewChildren, QueryList, AfterViewInit, OnDestroy, inject } from '@angular/core';
+import { Router, ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { BingoService, BINGO_LETTERS, BINGO_RANGES, TOTAL_BALLS } from '../../services/bingo.service';
+import { SpeechService } from '../../services/speech.service';
 import * as QRCode from 'qrcode';
+import { Unsubscribe } from 'firebase/firestore';
 
 @Component({
     selector: 'app-host',
@@ -10,11 +12,16 @@ import * as QRCode from 'qrcode';
     imports: [CommonModule],
     templateUrl: './host.component.html'
 })
-export class HostComponent implements OnInit, AfterViewInit {
+export class HostComponent implements OnInit, AfterViewInit, OnDestroy {
     @ViewChildren('qrCanvas') qrCanvases!: QueryList<ElementRef<HTMLCanvasElement>>;
 
-    private readonly bingoService = inject(BingoService);
+    readonly bingoService = inject(BingoService);
     private readonly router = inject(Router);
+    private readonly route = inject(ActivatedRoute);
+    readonly speechService = inject(SpeechService);
+    private unsubscribe?: Unsubscribe;
+    
+    gameId = signal<string>('');
 
     showBallAnimation = signal(false);
     animatingBall = signal<number | null>(null);
@@ -51,14 +58,58 @@ export class HostComponent implements OnInit, AfterViewInit {
     });
 
     ngOnInit(): void {
-        if (this.players().length === 0) {
-            const loaded = this.bingoService.loadGameState();
-            if (!loaded) {
-                this.router.navigate(['/']);
-                return;
-            }
+        // Get gameId from route
+        const gameIdFromRoute = this.route.snapshot.paramMap.get('gameId');
+        if (!gameIdFromRoute) {
+            console.error('No gameId in route');
+            this.router.navigate(['/']);
+            return;
         }
+        
+        this.gameId.set(gameIdFromRoute);
+        console.log('🎮 Host component - Game ID:', gameIdFromRoute);
+
+        if (this.players().length === 0) {
+            // Load game from Firestore
+            this.bingoService.loadGameStateFromFirestore(gameIdFromRoute).then(loaded => {
+                if (!loaded) {
+                    console.error('Game not found in Firestore');
+                    this.router.navigate(['/']);
+                    return;
+                }
+            });
+        }
+
+        // Subscribe to real-time updates from Firestore
+        this.unsubscribe = this.bingoService.subscribeToGameState(gameIdFromRoute);
+        
+        // Add keyboard listener for spacebar
+        this.setupKeyboardListeners();
     }
+
+    ngOnDestroy(): void {
+        if (this.unsubscribe) {
+            this.unsubscribe();
+        }
+        // Remove keyboard listener
+        this.removeKeyboardListeners();
+    }
+
+    private setupKeyboardListeners(): void {
+        document.addEventListener('keydown', this.handleKeyPress);
+    }
+
+    private removeKeyboardListeners(): void {
+        document.removeEventListener('keydown', this.handleKeyPress);
+    }
+
+    private handleKeyPress = (event: KeyboardEvent): void => {
+        // Spacebar or Space key
+        if (event.code === 'Space' || event.key === ' ') {
+            event.preventDefault(); // Prevent page scroll
+            this.drawBall();
+        }
+    };
 
     ngAfterViewInit(): void {
         this.qrCanvases.changes.subscribe(() => {
@@ -76,9 +127,14 @@ export class HostComponent implements OnInit, AfterViewInit {
 
         if (ball > 0) {
             this.animatingBall.set(ball);
+            
+            // Announce the ball with text to speech
+            const letter = this.bingoService.getLetterForNumber(ball);
+            this.speechService.announceBall(letter, ball);
+            
             setTimeout(() => {
                 this.showBallAnimation.set(false);
-            }, 800);
+            }, 700);
         }
     }
 
@@ -93,10 +149,12 @@ export class HostComponent implements OnInit, AfterViewInit {
         if (!this.qrCanvases) return;
 
         const baseUrl = window.location.origin;
+        const currentGameId = this.gameId();
+        
         this.qrCanvases.forEach((canvasRef, index) => {
             const playerId = this.players()[index]?.id;
-            if (playerId !== undefined) {
-                const url = `${baseUrl}/player?player=${playerId}`;
+            if (playerId !== undefined && currentGameId) {
+                const url = `${baseUrl}/game/${currentGameId}/player/${playerId}`;
                 QRCode.toCanvas(canvasRef.nativeElement, url, {
                     width: 180,
                     margin: 2,
@@ -123,8 +181,26 @@ export class HostComponent implements OnInit, AfterViewInit {
         this.router.navigate(['/']);
     }
 
+    toggleAudio(): void {
+        this.speechService.toggle();
+    }
+
+    onVoiceChange(event: Event): void {
+        const select = event.target as HTMLSelectElement;
+        const index = parseInt(select.value, 10);
+        this.speechService.setVoice(index);
+    }
+
+    getWinnerName(): string {
+        const id = this.winnerId();
+        if (!id) return '';
+        const winner = this.players().find(p => p.id === id);
+        return winner?.name || `Jugador ${id}`;
+    }
+
     getPlayerUrl(playerId: number): string {
-        return `${window.location.origin}/player?player=${playerId}`;
+        const currentGameId = this.gameId();
+        return `${window.location.origin}/game/${currentGameId}/player/${playerId}`;
     }
 
     /**

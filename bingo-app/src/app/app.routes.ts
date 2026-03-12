@@ -5,7 +5,7 @@ import { PlayerComponent } from './components/player/player.component';
 
 export const routes: Routes = [
     { path: '', component: SetupComponent },
-    { path: 'host', component: HostComponent },
-    { path: 'player', component: PlayerComponent },
+    { path: 'game/:gameId/host', component: HostComponent },
+    { path: 'game/:gameId/player/:playerId', component: PlayerComponent },
     { path: '**', redirectTo: '' }
 ];

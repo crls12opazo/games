@@ -12,6 +12,7 @@ import { BingoService } from '../../services/bingo.service';
 })
 export class SetupComponent {
     playerCount = signal(2);
+    prize = signal<string>('');
     maxPlayers = 10;
     minPlayers = 2;
     isStarting = signal(false);
@@ -33,23 +34,24 @@ export class SetupComponent {
         }
     }
 
-    startGame(): void {
+    async startGame(): Promise<void> {
         this.isStarting.set(true);
-        setTimeout(() => {
-            this.bingoService.initializeGame(this.playerCount());
-            this.router.navigate(['/host']);
-        }, 500);
+        try {
+            console.log('🚀 Iniciando juego desde SetupComponent');
+            const gameId = await this.bingoService.initializeGame(this.playerCount(), this.prize());
+            console.log('✅ Navegando a /game/' + gameId + '/host');
+            this.router.navigate(['/game', gameId, 'host']);
+        } catch (error) {
+            console.error('❌ Error al iniciar juego:', error);
+            this.isStarting.set(false);
+        }
     }
 
     resumeGame(): boolean {
-        return !!localStorage.getItem('bingo-game-state');
+        return false; // Disabled - each game has unique ID
     }
 
-    onResumeGame(): void {
-        const loaded = this.bingoService.loadGameState();
-        if (loaded) {
-            this.bingoService.phase.set('host');
-            this.router.navigate(['/host']);
-        }
+    async onResumeGame(): Promise<void> {
+        // No longer used
     }
 }

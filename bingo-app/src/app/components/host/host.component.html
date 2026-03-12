@@ -13,6 +13,28 @@
             </div>
 
             <div class="flex items-center gap-3">
+                <!-- Audio Toggle Button -->
+                @if (speechService.isSupported()) {
+                <button (click)="toggleAudio()"
+                    class="flex items-center gap-2 px-4 py-2 rounded-lg border transition-all duration-200"
+                    [class]="speechService.isEnabled() 
+                        ? 'bg-green-600/20 hover:bg-green-600/40 border-green-500/30 text-green-300 hover:text-white' 
+                        : 'bg-slate-600/20 hover:bg-slate-600/40 border-slate-500/30 text-slate-400 hover:text-white'">
+                    <i class="pi" [class]="speechService.isEnabled() ? 'pi-volume-up' : 'pi-volume-off'"></i>
+                    <span class="hidden sm:inline">{{ speechService.isEnabled() ? 'Audio On' : 'Audio Off' }}</span>
+                </button>
+                
+                <!-- Voice Selector -->
+                @if (speechService.availableVoices().length > 0) {
+                <select (change)="onVoiceChange($event)"
+                    [value]="speechService.selectedVoiceIndex()"
+                    class="px-3 py-2 rounded-lg bg-slate-700/50 border border-slate-600/50 text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 hover:bg-slate-700/70 transition-all duration-200 max-w-[200px]">
+                    @for (voice of speechService.availableVoices(); track $index) {
+                    <option [value]="$index">{{ voice.name }}</option>
+                    }
+                </select>
+                }
+                }
                 <button (click)="toggleQRPanel()"
                     class="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-500/30 text-indigo-300 hover:text-white transition-all duration-200">
                     <i class="pi pi-qrcode"></i>
@@ -28,13 +50,32 @@
     </header>
 
     <main class="max-w-7xl mx-auto p-4 space-y-6">
+        <!-- Prize Banner -->
+        @if (bingoService.prize()) {
+        <div class="glass-card rounded-xl p-4 border border-amber-500/30">
+            <div class="flex items-center justify-center gap-3">
+                <i class="pi pi-trophy text-amber-400 text-2xl"></i>
+                <div>
+                    <p class="text-slate-400 text-xs">Premio de esta partida</p>
+                    <p class="text-amber-300 text-lg font-bold">{{ bingoService.prize() }}</p>
+                </div>
+            </div>
+        </div>
+        }
+
         <!-- Winner Banner -->
         @if (winnerId()) {
         <div
             class="animate-bounce-in bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 border border-yellow-500/40 rounded-2xl p-6 text-center">
             <div class="text-6xl mb-3">🎉🏆🎉</div>
             <h2 class="text-3xl font-black text-yellow-400 mb-1">¡BINGO!</h2>
-            <p class="text-yellow-200 text-lg">¡Jugador {{ winnerId() }} ha ganado la partida!</p>
+            <p class="text-yellow-200 text-lg">¡{{ getWinnerName() }} ha ganado la partida!</p>
+            @if (bingoService.prize()) {
+            <div class="mt-4 pt-4 border-t border-yellow-500/30">
+                <p class="text-yellow-300 text-sm">Gana:</p>
+                <p class="text-yellow-100 text-xl font-bold">🏆 {{ bingoService.prize() }}</p>
+            </div>
+            }
         </div>
         }
 
@@ -76,17 +117,22 @@
 
                     <!-- Draw Button + History -->
                     <div class="flex-1 space-y-4">
-                        <button (click)="drawBall()"
-                            [disabled]="isDrawing() || drawnCount() >= totalBalls || winnerId() !== null"
-                            class="w-full py-4 px-6 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-900 font-bold text-lg rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-95 hover:shadow-xl hover:shadow-amber-500/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3">
-                            @if (isDrawing()) {
-                            <i class="pi pi-spin pi-spinner text-xl"></i>
-                            <span>Mezclando...</span>
-                            } @else {
-                            <i class="pi pi-play-circle text-xl"></i>
-                            <span>Sacar Bolita</span>
-                            }
-                        </button>
+                        <div>
+                            <button (click)="drawBall()"
+                                [disabled]="isDrawing() || drawnCount() >= totalBalls || winnerId() !== null"
+                                class="w-full py-4 px-6 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-900 font-bold text-lg rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-95 hover:shadow-xl hover:shadow-amber-500/25 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-3">
+                                @if (isDrawing()) {
+                                <i class="pi pi-spin pi-spinner text-xl"></i>
+                                <span>Mezclando...</span>
+                                } @else {
+                                <i class="pi pi-play-circle text-xl"></i>
+                                <span>Sacar Bolita</span>
+                                }
+                            </button>
+                            <p class="text-xs text-slate-500 text-center mt-2">
+                                <i class="pi pi-keyboard text-[10px]"></i> Presiona <kbd class="px-1.5 py-0.5 bg-slate-700 rounded border border-slate-600 text-slate-300 font-mono text-[10px]">Espacio</kbd> para sacar bolita
+                            </p>
+                        </div>
 
                         <!-- Last 5 Balls -->
                         <div>

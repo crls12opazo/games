@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read and write access to all game documents
+    // Each game has a unique UUID, stored in /games/{gameId}
+    match /games/{gameId} {
+      allow read, write: if true;
+    }
+  }
+}
